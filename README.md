@@ -1,80 +1,179 @@
-**Clinical RAG System – DiReCT (MIMIC-IV)**
+**Clinical RAG System – DiReCT (MIMIC-IV-Ext Direct)**
 
-A Retrieval-Augmented Generation (RAG) pipeline built using the MIMIC-IV-Ext Direct dataset.
-The system retrieves clinically relevant evidence from patient notes and generates grounded answers using transformer models.
-Includes a full Streamlit Frontend, Colab-friendly setup, and evaluation suite.
+A complete Retrieval-Augmented Generation platform for clinical question answering.
+
+****Overview**
+DiReCT — Clinical RAG System is a full-pipeline Retrieval-Augmented Generation (RAG) framework designed to work with the MIMIC-IV-Ext Direct dataset.
+It retrieves clinically relevant evidence from patient records using sentence-transformer embeddings + FAISS, then generates grounded answers using a Flan-T5 transformer model.
+
+The system includes:
+
+Document ingestion (JSON/TXT/CSV auto-parsing + chunking)
+FAISS-based dense retrieval
+Transformer-based answer generation (Flan-T5 Large)
+Complete evaluation suite
+Precision / Recall
+BLEU
+ROUGE-L
+Semantic coherence
+Interactive Streamlit app
+Colab-friendly scripts for embedding, indexing, generation & evaluation
 
 **Project Structure**
-├── app.py                    # Streamlit Frontend
-├── DiReCT_rag_eval.py       # Full RAG backend (retrieval + generation + evaluation)
+├── direct_app.py                 # Streamlit Frontend (Interactive RAG UI)
+├── main_colab_setup.ipynb        # Colab pipeline (embedding, indexing, evaluation)
+├── documents.pkl                 # Saved chunked documents
+├── faiss_index.index             # FAISS index of embeddings
 ├── data/
-│   └── samples_extracted/   # Extracted JSON files from samples.rar
-├── README.md                # Project documentation
+│   ├── mimic-iv-ext-direct-1.0.0.zip
+│   └── samples_extracted/        # Extracted JSON/TXT files
+├── README.md                     # Project documentation (this file)
 
 **Features**
-End-to-end RAG pipeline
-BM25 + embedding hybrid retrieval
-Transformer-based answer generation
-Automatic evaluation (precision, recall, BLEU, coherence)
-Streamlit UI for interactive querying
-Fully modular and documented
-Works perfectly on Google Colab
+✓ End-to-End RAG Pipeline
+Automatic loading, cleaning, chunking, and embedding of clinical notes
+Fast FAISS inner-product retrieval
+Grounded generation using Flan-T5 Large
+
+✓ Evaluation Suite
+For every generated answer:
+Precision & Recall (retrieval quality)
+BLEU score
+ROUGE-L score
+Embedding-based coherence metric
+
+✓ Streamlit Frontend
+Clean UI to submit clinical questions
+Displays retrieved evidence
+Shows grounded LLM answers
+Works with ngrok for public sharing via Colab
+
+✓ Colab-Friendly
+Automatic dependency installation
+Automatic Google Drive mounting
+Automatic extraction of .rar and .zip clinical datasets
+No manual steps required except uploading your dataset
 
 **Requirements**
-Install dependencies:
-pip install streamlit rank_bm25 sentence-transformers rarfile tqdm numpy torch
-If using Colab, also:
+Core Libraries
+pip install sentence-transformers faiss-cpu transformers accelerate datasets
+pip install streamlit pyngrok rouge-score tqdm nltk
+
+If using Google Colab
 sudo apt-get install unrar
 
-**Dataset Setup**
-Upload the provided ZIP file to Google Drive.
-The backend automatically:
+**Models Used**
+Embeddings → sentence-transformers/all-MiniLM-L6-v2
+Generator → google/flan-t5-large
+
+**Dataset Setup (MIMIC-IV-Ext Direct)**
+1. Upload the dataset to Google Drive
+Upload the file:
+mimic-iv-ext-direct-1.0.0.zip
+to:
+MyDrive/
+2. Colab Code Automatically:
 mounts Google Drive
 extracts the ZIP
-extracts samples.rar
-loads JSON files
+locates samples.rar
+extracts samples_extracted/
+recursively scans JSON/TXT/CSV to build documents
+chunks, embeds, and indexes everything
+No manual extraction required.
+
+**How the System Works**
+1️.Preprocessing & Document Chunking
+All JSON/TXT/CSV files from samples_extracted/ are scanned
+JSON is auto-parsed and flattened
+Text is chunked into ~800-word segments
+Each chunk receives a UUID and metadata
+Purpose: Normalize the dataset for embedding + retrieval.
+
+2️.Embedding & FAISS Index
+Uses all-MiniLM-L6-v2 (384-dim embeddings)
+All embeddings are normalized (L2)
+Stored inside FAISS IndexFlatIP (inner-product for cosine similarity)
+Produces:
+faiss_index.index
+documents.pkl
+
+3️.Dense Retrieval
+Example:
+retrieve("shortness of breath and fever", k=3)
+Returns the top-k most relevant document fragments.
+Retrieval score = cosine similarity of embeddings.
+
+4️.Prompt Construction
+The RAG prompt includes:
+User query
+Truncated (350-token) retrieved chunks
+Strict grounding:
+“Use ONLY the provided context…”
+
+5️.LLM Answer Generation
+The system uses:
+Flan-T5 Large
+Max 256 new tokens
+Deterministic (no sampling)
+
+6️.Evaluation Metrics
+Retrieval
+Precision
+Recall
+Count of matched keywords
+Generation
+BLEU
+ROUGE-L
+Coherence (semantic similarity between reference & prediction)
+Automatically generated during rag_chat() mode.
 
 **Running the Streamlit App**
-streamlit run app.py
-The UI will open in the browser.
+Local Machine
+streamlit run direct_app.py
+Google Colab (with ngrok)
+Your script already automates:
+ngrok.set_auth_token()
+streamlit run direct_app.py --server.port 6006
+ngrok.connect(6006)
 
-**How It Works**
-1. Retrieval
-Uses:
-BM25 lexical scores
-Embedding cosine similarities
-Hybrid ranking
+This generates a public URL for the app.
 
-2. Generation
-The top-k retrieved chunks are combined with the user query and provided to the LLM.
+**Example Clinical Query**
+Query:
+What are the current vitals and chief complaint of the patient?
 
-3. Evaluation
-Includes:
-BLEU
-Precision & Recall
-Coherence
-Manual inspection tools
-
-**Example Query**
-What symptoms are commonly associated with acute heart failure?
-The app will display:
-Retrieved evidence documents
-The model-generated final answer
+The app will show:
+Retrieved documents (with cosine scores & file source)
+A grounded final answer
+Evaluation metrics (if run via CLI mode)
 
 **Inline Documentation**
-Each major function in the backend contains:
-descriptive docstrings
-comments explaining logic
-clear variable names
+All major components include:
+✔ Docstrings describing functionality
+✔ Inline comments explaining purpose & logic
+✔ Clear variable names
+✔ Modular architecture for readability
 
-**Author**
-Ifrah Rauf and Eman Fatima
+**Components documented include:**
+Dataset loading
+RAR/ZIP extraction
+JSON parsing
+Chunking
+Embedding
+FAISS indexing
+Retrieval
+Prompt construction
+Answer generation
+Streamlit UI hooks
+Evaluation utilities
+
+**Authors**
+Ifrah Rauf
 7th-Semester Computer Science
-**Linkedin**
-https://www.linkedin.com/in/eman-fatima-145a86282/
-https://www.linkedin.com/in/ifrah-rauf-686633351/
-**GitHub**
-https://github.com/Eman123123
-https://github.com/Ifrah-Rauf09
+GitHub: https://github.com/Ifrah-Rauf09
+LinkedIn: https://www.linkedin.com/in/ifrah-rauf-686633351/
 
-
+Eman Fatima
+7th-Semester Computer Science
+GitHub: https://github.com/Eman123123
+LinkedIn: https://www.linkedin.com/in/eman-fatima-145a86282/
